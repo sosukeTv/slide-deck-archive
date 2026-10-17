@@ -8,17 +8,9 @@ interface MermaidProps {
 
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'default',
-  themeVariables: {
-    primaryColor: '#3b82f6',
-    primaryTextColor: '#1e293b',
-    primaryBorderColor: '#2563eb',
-    lineColor: '#64748b',
-    secondaryColor: '#f1f5f9',
-    tertiaryColor: '#ffffff'
-  },
+  theme: 'neutral',
   securityLevel: 'loose',
-  fontFamily: 'Pretendard, sans-serif'
+  fontFamily: 'Inter, Noto Sans JP, sans-serif'
 });
 
 export const MermaidDiagram: React.FC<MermaidProps> = ({ chart, className = '' }) => {
@@ -41,7 +33,7 @@ export const MermaidDiagram: React.FC<MermaidProps> = ({ chart, className = '' }
         if (isMounted) {
           const errMsg = err instanceof Error ? err.message : String(err);
           console.warn('Mermaid render error:', errMsg);
-          setError('다이어그램 렌더링 중 오류가 발생했습니다.');
+          setError('図表のレンダリング中にエラーが発生しました。');
         }
       }
     };
@@ -54,7 +46,7 @@ export const MermaidDiagram: React.FC<MermaidProps> = ({ chart, className = '' }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+      <div className="p-4 bg-zinc-100 border border-zinc-200 rounded-xl text-zinc-600 text-sm">
         {error}
       </div>
     );
@@ -63,7 +55,7 @@ export const MermaidDiagram: React.FC<MermaidProps> = ({ chart, className = '' }
   return (
     <div
       ref={containerRef}
-      className={`mermaid-wrapper flex justify-center items-center my-6 overflow-x-auto p-4 bg-white/80 rounded-xl border border-slate-100 shadow-sm ${className}`}
+      className={`mermaid-wrapper flex justify-center items-center my-6 overflow-x-auto p-6 bg-zinc-50 rounded-2xl border border-zinc-200/70 ${className}`}
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );

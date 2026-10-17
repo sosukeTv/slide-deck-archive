@@ -39,6 +39,11 @@ export function parseFrontmatter(rawContent: string): { meta: Partial<Presentati
     const key = trimmed.slice(0, colonIdx).trim();
     let val: any = trimmed.slice(colonIdx + 1).trim();
 
+    // Remove inline comments if outside quotes
+    if (!val.startsWith('"') && !val.startsWith("'") && !val.startsWith('[')) {
+      val = val.split('#')[0].trim();
+    }
+
     // Remove quotes
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
       val = val.slice(1, -1);
@@ -137,11 +142,11 @@ export function createPresentationData(rawMarkdown: string, defaultId: string): 
 
   const fullMeta: PresentationMeta = {
     id: meta.id || defaultId,
-    title: meta.title || '무제 발표 자료',
+    title: meta.title || '無題のプレゼンテーション',
     subtitle: meta.subtitle,
     date: meta.date || new Date().toISOString().split('T')[0],
     category: meta.category || 'Tech',
-    author: meta.author || '발표자',
+    author: meta.author || 'Presenter',
     description: meta.description || '',
     tags: meta.tags || [],
     youtubeId: meta.youtubeId,

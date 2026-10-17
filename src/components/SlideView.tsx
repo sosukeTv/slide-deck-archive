@@ -11,8 +11,8 @@ import {
   Maximize2,
   Minimize2,
   Grid,
-  Info,
-  Layers
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface SlideViewProps {
@@ -29,13 +29,45 @@ export const SlideView: React.FC<SlideViewProps> = ({
   const [currentIdx, setCurrentIdx] = useState(initialSlide);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [darkTheme, setDarkTheme] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef<number | null>(null);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { slides } = data;
   const totalSlides = slides.length;
+
+  // Auto-enter fullscreen on mount if possible
+  useEffect(() => {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // Ignore if browser blocks automatic fullscreen without direct gesture
+      });
+    }
+    return () => {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Auto-hide controls after 2.5s of mouse inactivity
+  const resetControlsTimer = useCallback(() => {
+    setControlsVisible(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    resetControlsTimer();
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, [resetControlsTimer, currentIdx]);
 
   const nextSlide = useCallback(() => {
     setCurrentIdx((prev) => (prev < totalSlides - 1 ? prev + 1 : prev));
@@ -45,45 +77,47 @@ export const SlideView: React.FC<SlideViewProps> = ({
     setCurrentIdx((prev) => (prev > 0 ? prev - 1 : prev));
   }, []);
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen().catch((err) => {
-        console.warn('Error attempting to enable fullscreen:', err);
-      });
+      document.documentElement.requestFullscreen().catch(() => {});
     } else {
-      document.exitFullscreen().catch((err) => {
-        console.warn('Error attempting to exit fullscreen:', err);
-      });
+      document.exitFullscreen().catch(() => {});
     }
-  };
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    onClose();
+  }, [onClose]);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
 
       switch (e.key) {
         case 'ArrowRight':
         case 'ArrowDown':
         case 'PageDown':
-        case ' ': // Spacebar
+        case ' ':
+        case 'Enter':
           e.preventDefault();
           nextSlide();
           break;
         case 'ArrowLeft':
         case 'ArrowUp':
         case 'PageUp':
+        case 'Backspace':
           e.preventDefault();
           prevSlide();
           break;
         case 'Escape':
           if (showOverview) {
             setShowOverview(false);
-          } else if (showHelp) {
-            setShowHelp(false);
           } else {
-            onClose();
+            handleClose();
           }
           break;
         case 'f':
@@ -96,17 +130,19 @@ export const SlideView: React.FC<SlideViewProps> = ({
           e.preventDefault();
           setShowOverview((prev) => !prev);
           break;
-        case '?':
-          setShowHelp((prev) => !prev);
+        case 't':
+        case 'T':
+          e.preventDefault();
+          setDarkTheme((prev) => !prev);
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextSlide, prevSlide, onClose, showOverview, showHelp]);
+  }, [nextSlide, prevSlide, handleClose, toggleFullscreen, showOverview]);
 
-  // Sync fullscreen change event
+  // Sync fullscreen state
   useEffect(() => {
     const handleFsChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -118,6 +154,7 @@ export const SlideView: React.FC<SlideViewProps> = ({
   // Touch swipe support
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
+    resetControlsTimer();
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -142,183 +179,156 @@ export const SlideView: React.FC<SlideViewProps> = ({
   return (
     <div
       ref={containerRef}
+      onMouseMove={resetControlsTimer}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col justify-between overflow-hidden select-none"
+      className={`fixed inset-0 z-50 w-screen h-screen flex flex-col justify-between overflow-hidden select-none transition-colors duration-300 ${
+        darkTheme ? 'bg-zinc-950 text-zinc-50' : 'bg-white text-zinc-950'
+      }`}
     >
-      {/* Top Controls Bar */}
-      <div className="flex items-center justify-between px-6 py-4 bg-slate-900/60 backdrop-blur-md border-b border-slate-800/80 z-20">
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={onClose}
-            className="flex items-center space-x-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-all"
-            title="발표 종료 및 글 모드로 복귀 (ESC)"
-          >
-            <X className="w-4 h-4 text-rose-400" />
-            <span>종료 (ESC)</span>
-          </button>
+      {/* Full-Viewport Slide Content Canvas */}
+      <div className="flex-1 w-full h-full flex items-center justify-center px-8 sm:px-16 md:px-28 py-12 overflow-y-auto relative">
+        {/* Invisible Left/Right Click Zones for quick navigation */}
+        <div
+          onClick={prevSlide}
+          className="fixed left-0 top-0 bottom-16 w-16 sm:w-24 z-10 cursor-w-resize"
+          title="前のスライド (←)"
+        />
+        <div
+          onClick={nextSlide}
+          className="fixed right-0 top-0 bottom-16 w-16 sm:w-24 z-10 cursor-e-resize"
+          title="次のスライド (→)"
+        />
 
-          <span className="text-slate-600 hidden sm:inline">|</span>
-
-          <span className="text-xs text-slate-400 font-medium truncate max-w-xs sm:max-w-md hidden sm:inline">
-            {data.meta.title}
-          </span>
-        </div>
-
-        {/* Center: Slide Timer */}
-        <div className="flex items-center space-x-4">
-          <PresentationTimer />
-        </div>
-
-        {/* Right: Actions & Page counter */}
-        <div className="flex items-center space-x-2">
-          {/* Slide Overview Toggle */}
-          <button
-            onClick={() => setShowOverview(!showOverview)}
-            className={`p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors ${
-              showOverview ? 'bg-blue-600 text-white' : ''
-            }`}
-            title="슬라이드 전체 보기 (O)"
-          >
-            <Grid className="w-4 h-4" />
-          </button>
-
-          {/* Help Toggle */}
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-            title="단축키 안내 (?)"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-
-          {/* Fullscreen Toggle */}
-          <button
-            onClick={toggleFullscreen}
-            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-            title="전체화면 전환 (F)"
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
+        {/* Slide Body */}
+        <div className="w-full max-w-6xl mx-auto my-auto slide-content">
+          {currentBlocks.map((block, idx) => {
+            if (block.type === 'mermaid') {
+              return (
+                <MermaidDiagram
+                  key={idx}
+                  chart={block.content}
+                  className={darkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200/80'}
+                />
+              );
+            }
+            if (block.type === 'youtube') {
+              return <YouTubeEmbed key={idx} videoId={block.content} compact />;
+            }
+            return (
+              <div
+                key={idx}
+                dangerouslySetInnerHTML={{ __html: block.content }}
+              />
+            );
+          })}
         </div>
       </div>
 
-      {/* Main Slide Canvas (16:9 presentation area) */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12 relative overflow-hidden">
-        {/* Previous Button Left Hotspot */}
+      {/* Subtle Minimal Footer Watermark (Always visible at bottom corners) */}
+      <div className="px-8 sm:px-14 pb-5 flex items-center justify-between text-xs font-mono opacity-40 pointer-events-none">
+        <span className="truncate max-w-md">{data.meta.title}</span>
+        <span>
+          {String(currentIdx + 1).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}
+        </span>
+      </div>
+
+      {/* Floating Auto-Hiding Control Pill */}
+      <div
+        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center space-x-2 bg-zinc-900/90 text-white backdrop-blur-md px-4 py-2 rounded-full border border-zinc-700/70 shadow-2xl transition-all duration-300 ${
+          controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+        }`}
+      >
         <button
           onClick={prevSlide}
           disabled={currentIdx === 0}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-slate-900/60 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-0 disabled:pointer-events-none hover:scale-110"
+          className="p-1.5 hover:bg-zinc-800 rounded-full disabled:opacity-30 transition-colors"
+          title="前のスライド (←)"
         >
-          <ChevronLeft className="w-6 h-6" />
+          <ChevronLeft className="w-4 h-4" />
         </button>
 
-        {/* Next Button Right Hotspot */}
+        <span className="text-xs font-mono px-2 tabular-nums text-zinc-300">
+          {currentIdx + 1} / {totalSlides}
+        </span>
+
         <button
           onClick={nextSlide}
           disabled={currentIdx === totalSlides - 1}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-slate-900/60 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-0 disabled:pointer-events-none hover:scale-110"
+          className="p-1.5 hover:bg-zinc-800 rounded-full disabled:opacity-30 transition-colors"
+          title="次のスライド (→)"
         >
-          <ChevronRight className="w-6 h-6" />
+          <ChevronRight className="w-4 h-4" />
         </button>
 
-        {/* Slide Card */}
-        <div className="w-full max-w-5xl aspect-[16/10] sm:aspect-[16/9] max-h-[80vh] bg-white text-slate-900 rounded-3xl p-8 sm:p-12 md:p-16 shadow-2xl flex flex-col justify-between overflow-y-auto relative border border-slate-200">
-          <div className="slide-content flex-1 flex flex-col justify-center">
-            {currentBlocks.map((block, idx) => {
-              if (block.type === 'mermaid') {
-                return <MermaidDiagram key={idx} chart={block.content} className="my-4 max-h-64" />;
-              }
-              if (block.type === 'youtube') {
-                return <YouTubeEmbed key={idx} videoId={block.content} compact />;
-              }
-              return (
-                <div
-                  key={idx}
-                  dangerouslySetInnerHTML={{ __html: block.content }}
-                />
-              );
-            })}
-          </div>
+        <div className="h-4 w-px bg-zinc-700 mx-1" />
 
-          {/* Slide Footer */}
-          <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-            <span className="font-medium truncate max-w-sm">{data.meta.title}</span>
-            <span className="font-semibold text-slate-500">
-              {currentIdx + 1} / {totalSlides}
-            </span>
-          </div>
-        </div>
+        <PresentationTimer />
+
+        <div className="h-4 w-px bg-zinc-700 mx-1" />
+
+        {/* Slide Overview Toggle */}
+        <button
+          onClick={() => setShowOverview(!showOverview)}
+          className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-300 hover:text-white transition-colors"
+          title="スライド一覧 (O)"
+        >
+          <Grid className="w-4 h-4" />
+        </button>
+
+        {/* Theme Toggle (Light / Dark) */}
+        <button
+          onClick={() => setDarkTheme(!darkTheme)}
+          className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-300 hover:text-white transition-colors"
+          title="テーマ切替 (T)"
+        >
+          {darkTheme ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+
+        {/* Fullscreen Toggle */}
+        <button
+          onClick={toggleFullscreen}
+          className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-300 hover:text-white transition-colors"
+          title="全画面表示 (F)"
+        >
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
+
+        <div className="h-4 w-px bg-zinc-700 mx-1" />
+
+        {/* Exit Slide Mode */}
+        <button
+          onClick={handleClose}
+          className="flex items-center space-x-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs font-medium text-zinc-200 transition-colors"
+          title="終了 (ESC)"
+        >
+          <X className="w-3.5 h-3.5" />
+          <span>終了</span>
+        </button>
       </div>
 
-      {/* Bottom Progress Bar & Navigation */}
-      <div className="bg-slate-900/80 backdrop-blur-md border-t border-slate-800/80 px-6 py-3 flex items-center justify-between z-20">
-        <div className="flex items-center space-x-2 text-xs text-slate-400">
-          <Layers className="w-3.5 h-3.5 text-blue-400" />
-          <span>
-            슬라이드 <strong className="text-white">{currentIdx + 1}</strong> / {totalSlides}
-          </span>
-        </div>
-
-        {/* Center Progress Dots */}
-        <div className="hidden sm:flex items-center space-x-1.5 max-w-md overflow-x-auto py-1">
-          {slides.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentIdx(idx)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                idx === currentIdx
-                  ? 'w-8 bg-blue-500'
-                  : 'w-2 bg-slate-700 hover:bg-slate-500'
-              }`}
-              title={`${idx + 1}번 슬라이드로 이동`}
-            />
-          ))}
-        </div>
-
-        {/* Right Keyboard Hints */}
-        <div className="flex items-center space-x-2 text-[11px] text-slate-400">
-          <span className="hidden md:inline">방향키(← →) 또는 Space로 넘김</span>
-          <div className="flex space-x-1">
-            <button
-              onClick={prevSlide}
-              disabled={currentIdx === 0}
-              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded text-slate-200"
-            >
-              이전
-            </button>
-            <button
-              onClick={nextSlide}
-              disabled={currentIdx === totalSlides - 1}
-              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded text-white font-medium"
-            >
-              다음
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Full Progress Line at bottom */}
-      <div className="w-full bg-slate-800 h-1">
+      {/* Ultra-thin Progress Line at Bottom Edge */}
+      <div className="fixed bottom-0 left-0 right-0 h-1 bg-zinc-500/10 z-20">
         <div
-          className="bg-blue-500 h-1 transition-all duration-300"
+          className={`h-full transition-all duration-300 ${
+            darkTheme ? 'bg-white' : 'bg-zinc-950'
+          }`}
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
       {/* Slide Overview Grid Modal */}
       {showOverview && (
-        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md p-6 sm:p-12 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-zinc-950/95 backdrop-blur-md p-6 sm:p-12 overflow-y-auto text-white">
           <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between pb-6 mb-8 border-b border-slate-800">
-              <h2 className="text-xl font-bold text-white flex items-center space-x-2">
-                <Grid className="w-5 h-5 text-blue-400" />
-                <span>전체 슬라이드 목차 (총 {totalSlides}장)</span>
+            <div className="flex items-center justify-between pb-6 mb-8 border-b border-zinc-800">
+              <h2 className="text-lg font-bold flex items-center space-x-2">
+                <Grid className="w-5 h-5 text-zinc-400" />
+                <span>スライド一覧（全 {totalSlides} 枚）</span>
               </h2>
               <button
                 onClick={() => setShowOverview(false)}
-                className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                className="p-2 text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 rounded-full transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -328,7 +338,7 @@ export const SlideView: React.FC<SlideViewProps> = ({
               {slides.map((s, idx) => {
                 const previewText = s
                   .replace(/#+/g, '')
-                  .replace(/```[\s\S]*?```/g, '[다이어그램]')
+                  .replace(/```[\s\S]*?```/g, '[図表]')
                   .replace(/\n+/g, ' ')
                   .trim()
                   .slice(0, 100);
@@ -340,89 +350,25 @@ export const SlideView: React.FC<SlideViewProps> = ({
                       setCurrentIdx(idx);
                       setShowOverview(false);
                     }}
-                    className={`p-4 rounded-xl text-left border transition-all flex flex-col justify-between h-36 ${
+                    className={`p-5 rounded-2xl text-left border transition-all flex flex-col justify-between h-40 ${
                       idx === currentIdx
-                        ? 'bg-blue-950/70 border-blue-500 ring-2 ring-blue-500/50'
-                        : 'bg-slate-900 border-slate-800 hover:border-slate-600 hover:bg-slate-800/80'
+                        ? 'bg-zinc-800 border-white ring-1 ring-white'
+                        : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-600'
                     }`}
                   >
-                    <span className="text-xs font-bold text-blue-400 mb-1">
-                      Slide {idx + 1}
+                    <span className="text-xs font-mono text-zinc-400">
+                      {String(idx + 1).padStart(2, '0')}
                     </span>
-                    <p className="text-xs text-slate-300 line-clamp-4 leading-relaxed">
-                      {previewText || '내용 없음'}
+                    <p className="text-xs text-zinc-200 line-clamp-3 leading-relaxed">
+                      {previewText || 'スライド'}
                     </p>
-                    <div className="text-[10px] text-slate-500 pt-1 text-right">
-                      {idx === currentIdx ? '● 현재 슬라이드' : '이동하기 →'}
+                    <div className="text-[11px] text-zinc-500 text-right">
+                      {idx === currentIdx ? '表示中' : '移動 →'}
                     </div>
                   </button>
                 );
               })}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Help Modal */}
-      {showHelp && (
-        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 text-white shadow-2xl">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
-              <h3 className="font-bold text-lg flex items-center space-x-2">
-                <Info className="w-5 h-5 text-blue-400" />
-                <span>발표 단축키 안내</span>
-              </h3>
-              <button
-                onClick={() => setShowHelp(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm text-slate-300">
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                <span>다음 슬라이드</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-blue-400">
-                  → / Space / PageDown
-                </kbd>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                <span>이전 슬라이드</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-blue-400">
-                  ← / PageUp
-                </kbd>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                <span>전체화면 켜기/끄기</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-blue-400">
-                  F
-                </kbd>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                <span>전체 슬라이드 목차</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-blue-400">
-                  O
-                </kbd>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                <span>발표 종료 (글 모드)</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-blue-400">
-                  ESC
-                </kbd>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span>모바일 / 태블릿</span>
-                <span className="text-xs text-slate-400">좌우 스와이프 터치</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowHelp(false)}
-              className="w-full mt-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-colors"
-            >
-              닫기
-            </button>
           </div>
         </div>
       )}
