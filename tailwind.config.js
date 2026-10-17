@@ -9,11 +9,10 @@ export default {
     extend: {
       fontFamily: {
         sans: [
-          'Inter',
-          'Noto Sans JP',
-          'Hiragino Sans',
-          'Hiragino Kaku Gothic ProN',
           'Meiryo',
+          'メイリオ',
+          'Hiragino Kaku Gothic ProN',
+          'Hiragino Sans',
           'sans-serif'
         ],
       },

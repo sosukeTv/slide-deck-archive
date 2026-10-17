@@ -10,7 +10,7 @@ mermaid.initialize({
   startOnLoad: false,
   theme: 'neutral',
   securityLevel: 'loose',
-  fontFamily: 'Inter, Noto Sans JP, sans-serif'
+  fontFamily: 'Meiryo, メイリオ, sans-serif'
 });
 
 export const MermaidDiagram: React.FC<MermaidProps> = ({ chart, className = '' }) => {

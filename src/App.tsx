@@ -1,11 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { getAllPresentations, getPresentationById } from './content';
+import {
+  getAllPresentations,
+  getPresentationById,
+  deleteCustomPresentation,
+  isCustomPresentation
+} from './content';
 import { Navbar } from './components/Navbar';
 import { PresentationCard } from './components/PresentationCard';
 import { BlogView } from './components/BlogView';
 import { SlideView } from './components/SlideView';
 import { GuideModal } from './components/GuideModal';
-import { Search } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -14,8 +19,9 @@ export const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+  const [refreshTick, setRefreshTick] = useState<number>(0);
 
-  const presentations = useMemo(() => getAllPresentations(), []);
+  const presentations = useMemo(() => getAllPresentations(), [refreshTick]);
 
   const filteredPresentations = useMemo(() => {
     return presentations.filter((p) => {
@@ -37,7 +43,7 @@ export const App: React.FC = () => {
   const currentPresentation = useMemo(() => {
     if (!activeId) return null;
     return getPresentationById(activeId);
-  }, [activeId]);
+  }, [activeId, refreshTick]);
 
   const handleSelectArticle = (id: string) => {
     setActiveId(id);
@@ -46,7 +52,6 @@ export const App: React.FC = () => {
   };
 
   const handleSelectSlide = (id: string, startIdx: number = 0) => {
-    // Request browser fullscreen directly inside user click gesture
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
@@ -63,6 +68,13 @@ export const App: React.FC = () => {
     setActiveId(null);
     setViewMode('home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteCustom = (id: string) => {
+    if (window.confirm('このプレゼンテーションを削除しますか？')) {
+      deleteCustomPresentation(id);
+      setRefreshTick((t) => t + 1);
+    }
   };
 
   // Fullscreen Slide Mode
@@ -92,14 +104,14 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-white flex flex-col font-sans text-zinc-900">
       <Navbar onOpenGuide={() => setIsGuideOpen(true)} onGoHome={handleGoHome} />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-14 pb-24 flex-1 w-full">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-14 pb-28 flex-1 w-full">
         {/* Minimalist Intro */}
         <header className="mb-12">
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 mb-3">
-            Presentations
+            プレゼンテーション一覧
           </h1>
           <p className="text-sm sm:text-base text-zinc-500">
-            月次プレゼンテーションのスライド再生と記事アーカイブ。
+            月次発表のスライド再生と記事アーカイブ。右下の「＋ 新規作成」からいつでも追加できます。
           </p>
         </header>
 
@@ -110,7 +122,8 @@ export const App: React.FC = () => {
               { id: 'all', label: `すべて (${presentations.length})` },
               { id: 'Security', label: 'セキュリティ・社会' },
               { id: 'Life', label: 'ライフスタイル' },
-              { id: 'Tech', label: 'テクノロジー' }
+              { id: 'Tech', label: 'テクノロジー' },
+              { id: 'Trends', label: 'トレンド' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -145,8 +158,10 @@ export const App: React.FC = () => {
               <PresentationCard
                 key={p.meta.id}
                 meta={p.meta}
+                isCustom={isCustomPresentation(p.meta.id)}
                 onSelectArticle={handleSelectArticle}
                 onSelectSlide={(id) => handleSelectSlide(id, 0)}
+                onDelete={handleDeleteCustom}
               />
             ))}
           </div>
@@ -166,6 +181,15 @@ export const App: React.FC = () => {
         )}
       </main>
 
+      {/* Floating Bottom-Right New Creation Button (FAB) */}
+      <button
+        onClick={() => setIsGuideOpen(true)}
+        className="fixed bottom-7 right-7 z-40 flex items-center space-x-2 bg-zinc-950 hover:bg-zinc-800 text-white px-5 py-3.5 rounded-full shadow-2xl border border-zinc-800 transition-all hover:scale-105 active:scale-95"
+      >
+        <Plus className="w-5 h-5" />
+        <span className="text-sm font-bold tracking-wide">新規作成</span>
+      </button>
+
       <footer className="border-t border-zinc-100 py-8 px-4 text-xs text-zinc-400">
         <div className="max-w-5xl mx-auto px-2 flex items-center justify-between">
           <span>© 2026 Slide Archive</span>
@@ -173,12 +197,19 @@ export const App: React.FC = () => {
             onClick={() => setIsGuideOpen(true)}
             className="hover:text-zinc-900 transition-colors"
           >
-            新規スライド作成ガイド
+            ＋ 新規スライド作成
           </button>
         </div>
       </footer>
 
-      <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+      <GuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onCreated={() => {
+          setRefreshTick((t) => t + 1);
+          setSelectedCategory('all');
+        }}
+      />
     </div>
   );
 };

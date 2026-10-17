@@ -1,11 +1,13 @@
 import React from 'react';
 import { PresentationMeta } from '../types/presentation';
-import { Play, ArrowUpRight } from 'lucide-react';
+import { Play, ArrowUpRight, Trash2 } from 'lucide-react';
 
 interface PresentationCardProps {
   meta: PresentationMeta;
+  isCustom?: boolean;
   onSelectArticle: (id: string) => void;
   onSelectSlide: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -17,8 +19,10 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 export const PresentationCard: React.FC<PresentationCardProps> = ({
   meta,
+  isCustom = false,
   onSelectArticle,
-  onSelectSlide
+  onSelectSlide,
+  onDelete
 }) => {
   return (
     <article className="group bg-white rounded-2xl border border-zinc-200/80 hover:border-zinc-400 transition-all duration-200 flex flex-col justify-between p-6">
@@ -32,11 +36,25 @@ export const PresentationCard: React.FC<PresentationCardProps> = ({
             <span>·</span>
             <time className="font-mono">{meta.date}</time>
           </div>
-          {meta.slidesCount && (
-            <span className="font-mono text-[11px] text-zinc-400">
-              {meta.slidesCount} slides
-            </span>
-          )}
+          <div className="flex items-center space-x-2">
+            {meta.slidesCount && (
+              <span className="font-mono text-[11px] text-zinc-400">
+                {meta.slidesCount} 枚
+              </span>
+            )}
+            {isCustom && onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(meta.id);
+                }}
+                className="p-1 text-zinc-300 hover:text-rose-500 transition-colors"
+                title="削除"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Title */}

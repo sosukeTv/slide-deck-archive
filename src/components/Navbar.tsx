@@ -29,10 +29,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenGuide, onGoHome }) => {
 
         <button
           onClick={onOpenGuide}
-          className="flex items-center space-x-1.5 text-xs font-medium text-zinc-700 hover:text-zinc-950 bg-zinc-100/80 hover:bg-zinc-200/70 px-3.5 py-2 rounded-full transition-colors"
+          className="flex items-center space-x-1.5 text-xs font-bold text-zinc-700 hover:text-zinc-950 bg-zinc-100 hover:bg-zinc-200/70 px-3.5 py-2 rounded-full transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>新規スライド作成方法</span>
+          <span>新規作成</span>
         </button>
       </div>
     </header>

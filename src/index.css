@@ -5,8 +5,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
-    font-feature-settings: "palt";
+    font-family: 'Meiryo', 'メイリオ', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
   }
 }
 
