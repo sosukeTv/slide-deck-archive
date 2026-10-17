@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Custom slide and markdown typography */
+.prose-custom {
+  @apply text-slate-700 leading-relaxed;
+}
+
+.prose-custom h1 {
+  @apply text-3xl font-extrabold text-slate-900 tracking-tight mt-8 mb-4 border-b border-slate-200 pb-2;
+}
+
+.prose-custom h2 {
+  @apply text-2xl font-bold text-slate-800 tracking-tight mt-6 mb-3;
+}
+
+.prose-custom h3 {
+  @apply text-xl font-semibold text-slate-800 mt-4 mb-2;
+}
+
+.prose-custom p {
+  @apply mb-4 leading-7 text-base text-slate-600;
+}
+
+.prose-custom ul {
+  @apply list-disc list-inside mb-4 space-y-1 text-slate-600;
+}
+
+.prose-custom ol {
+  @apply list-decimal list-inside mb-4 space-y-1 text-slate-600;
+}
+
+.prose-custom blockquote {
+  @apply border-l-4 border-blue-500 pl-4 py-2 italic text-slate-700 bg-blue-50/50 rounded-r-lg my-4;
+}
+
+.prose-custom table {
+  @apply w-full border-collapse border border-slate-200 my-6 text-sm rounded-lg overflow-hidden;
+}
+
+.prose-custom th {
+  @apply bg-slate-100 text-slate-800 font-semibold p-3 text-left border border-slate-200;
+}
+
+.prose-custom td {
+  @apply p-3 border border-slate-200 text-slate-600;
+}
+
+.prose-custom strong {
+  @apply font-bold text-slate-900;
+}
+
+/* Slide View specific typography scaling */
+.slide-content h1 {
+  @apply text-3xl md:text-5xl font-extrabold text-slate-900 mb-6 leading-tight tracking-tight;
+}
+
+.slide-content h2 {
+  @apply text-2xl md:text-3xl font-bold text-blue-600 mb-4;
+}
+
+.slide-content h3 {
+  @apply text-xl md:text-2xl font-semibold text-slate-800 mb-3;
+}
+
+.slide-content p {
+  @apply text-lg md:text-xl text-slate-600 leading-relaxed mb-4;
+}
+
+.slide-content ul {
+  @apply list-disc list-inside text-lg md:text-xl text-slate-700 space-y-3 mb-6;
+}
+
+.slide-content blockquote {
+  @apply border-l-4 border-blue-500 pl-6 py-3 text-xl italic text-slate-800 bg-blue-50/70 rounded-r-xl my-6;
+}
+
+.slide-content table {
+  @apply w-full border-collapse border border-slate-200 my-4 text-base rounded-xl overflow-hidden shadow-sm;
+}
+
+.slide-content th {
+  @apply bg-slate-100 text-slate-800 font-bold p-3 text-left border border-slate-200;
+}
+
+.slide-content td {
+  @apply p-3 border border-slate-200 text-slate-600;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
